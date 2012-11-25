@@ -1,0 +1,254 @@
+Testing the personal information form
+=====================================
+
+    >>> browser = self.browser
+
+Viewing the  personal information
+---------------------------------
+
+This is about the 'personal-information' view.
+
+    >>> view_name = '@@personal-information'
+
+Viewing user data shouldn't be possible for anonymous users:
+
+    >>> browser.open("http://nohost/plone/" + view_name)
+    >>> 'Login Name' in browser.contents
+    True
+
+So let's login as Plone user:
+    >>> browser.open('http://nohost/plone/')
+    >>> browser.getLink('Log in').click()
+    >>> browser.getControl('Login Name').value = 'test_user_1_'
+    >>> browser.getControl('Password').value = 'secret'
+    >>> browser.getControl('Log in').click()
+
+Now we should be able to access the user data panel:
+
+    >>> browser.open("http://nohost/plone/" + view_name)
+    >>> 'Login Name' in browser.contents
+    False
+    >>> browser.url.endswith(view_name)
+    True
+
+We have these controls in the form:
+
+    >>> browser.getControl('Full Name').value
+    ''
+    >>> browser.getControl('First name').value
+    ''
+    >>> browser.getControl('Last name').value
+    ''
+    >>> browser.getControl(name='form.widgets.gender').value
+    []
+    >>> browser.getControl(name='form.widgets.birthdate-day').value
+    '1'
+    >>> browser.getControl(name='form.widgets.birthdate-month').value
+    ['1']
+    >>> browser.getControl(name='form.widgets.birthdate-year').value
+    '2000'
+    >>> browser.getControl('City').value
+    ''
+    >>> browser.getControl('Country').value
+    ''
+    >>> browser.getControl('Telephone number').value
+    ''
+    >>> browser.getControl(name='form.widgets.newsletter:list').value
+    []
+    >>> browser.getControl('E-mail').value
+    ''
+    >>> browser.getControl('Home page').value
+    ''
+    >>> browser.getControl('Biography').value
+    ''
+    >>> browser.getControl(name='form.widgets.portrait').value
+
+
+Trying to save without changes
+------------------------------
+
+Now can we save this form without changes?
+
+    >>> browser.getControl('Save').click()
+    >>> 'Login Name' in browser.contents
+    False
+    >>> browser.url.endswith(view_name)
+    True
+    >>> browser.getControl('Save').click()
+    >>> browser.contents
+    '...Required input is missing...'
+
+As we have a required field "email", "gender", which hasn't been pre-filled in
+this test, we will get an error message. (In the real world, users would have an
+e-mail and gender address filled in.)
+
+
+Modifying user data
+-------------------
+
+If we do set required fields, we should be able to save the form.
+
+    >>> full_name = 'Plone user'
+    >>> browser.getControl('Full Name').value = full_name
+
+    >>> home_page = 'http://www.plone.org/'
+    >>> browser.getControl('Home page').value = home_page
+
+    >>> description = 'Far far away, behind the word mountains, far from the countries Vokalia and Consonantia, there live the blind texts.'
+    >>> browser.getControl('Biography').value = description
+
+    >>> email_address = 'person@example.com'
+    >>> browser.getControl('E-mail').value = email_address
+
+    >>> location = 'Somewhere'
+    >>> browser.getControl('Location').value = location
+
+    >>> from pkg_resources import resource_stream
+    >>> portrait_file = resource_stream("plone.app.users.tests", 'onepixel.jpg')
+    >>> browser.getControl(name='form.widgets.portrait').add_file(portrait_file, "image/jpg", "onepixel.jpg")
+
+    >>> gender = 'Male'
+    >>> browser.getControl(name='form.widgets.gender').value = [gender]
+    
+    >>> first_name = 'Plone'
+    >>> browser.getControl('First name').value = first_name
+    
+    >>> last_name = 'user'
+    >>> browser.getControl('Last name').value = last_name
+    
+    >>> day, month, year = 10, 3, 1973
+    >>> browser.getControl(name='form.widgets.birthdate-day').value = str(day)
+    >>> browser.getControl(name='form.widgets.birthdate-month').value = [str(month)]
+    >>> browser.getControl(name='form.widgets.birthdate-year').value = str(year)
+
+    >>> city = 'New York'
+    >>> browser.getControl('City').value = city
+    
+    >>> country = 'USA'
+    >>> browser.getControl('Country').value = country
+    
+    >>> phone = '9827384736'
+    >>> browser.getControl('Telephone number').value = phone
+
+    >>> browser.getControl(name='form.widgets.newsletter:list').value = ['selected']
+
+    >>> browser.getControl('Save').click()
+    >>> 'Required input is missing.' in browser.contents
+    False
+    >>> 'No changes made.' in browser.contents
+    False
+    >>> 'Changes saved.' in browser.contents
+    True
+
+
+
+We should be able to check that value for email address now is the same as what
+we put in.
+
+    >>> member = self.membership.getMemberById('test_user_1_')
+    >>> fullname_value = member.getProperty('fullname','')
+    >>> fullname_value == full_name
+    True
+
+    >>> home_page_value = member.getProperty('home_page','')
+    >>> home_page_value == home_page
+    True
+
+    >>> description_value = member.getProperty('description','')
+    >>> description_value == description
+    True
+
+    >>> email_value = member.getProperty('email','')
+    >>> email_value == email_address
+    True
+
+    >>> location_value = member.getProperty('location','')
+    >>> location_value == location
+    True
+
+    >>> portrait_value = self.membership.getPersonalPortrait('test_user_1_')
+    >>> portrait_value
+    <Image at /plone/portal_memberdata/portraits/test_user_1_>
+
+Is the data of the created Image the same as the (scaled) orignal image?
+
+    >>> portrait_file.seek(0)
+    >>> from Products.PlonePAS.utils import scale_image
+    >>> scaled_image_data = scale_image(portrait_file)[0].read()
+    >>> portrait_value.data == scaled_image_data
+    True
+
+    >>> member.getProperty('gender') == gender
+    True
+    
+    >>> member.getProperty('firstname') == first_name
+    True
+    
+    >>> member.getProperty('lastname') == last_name
+    True
+
+    >>> from datetime import date
+    >>> member.getProperty('birthdate') == date(year, month, day)
+    True
+
+    >>> member.getProperty('city') == city
+    True
+
+    >>> member.getProperty('country') == country
+    True
+
+    >>> member.getProperty('newsletter')
+    True
+
+    >>> member.getProperty('phone') == phone
+    True
+
+
+Clearing user data
+------------------
+
+If we empty all non-required inputs, the corresponding fields should
+be cleared, instead of keeping their old value
+
+    >>> browser.getControl('Full Name').value = ''
+    >>> browser.getControl('Home page').value = ''
+    >>> browser.getControl('Biography').value = ''
+    >>> browser.getControl('Location').value = ''
+    >>> browser.getControl('First name').value = ''
+    >>> browser.getControl('Last name').value = ''
+    >>> browser.getControl('City').value = ''
+    >>> browser.getControl('Country').value = ''
+    >>> browser.getControl('Telephone number').value = ''
+    >>> browser.getControl(name='form.widgets.newsletter:list').value = []
+    >>> browser.getControl('Save').click()
+    >>> 'Required input is missing.' in browser.contents
+    False
+    >>> 'No changes made.' in browser.contents
+    False
+    >>> 'Changes saved.' in browser.contents
+    True
+
+Check the values
+
+    >>> member = self.membership.getMemberById('test_user_1_')
+    >>> marker = object()
+    >>> member.getProperty('fullname', marker)
+    ''
+    >>> member.getProperty('home_page', marker)
+    ''
+    >>> member.getProperty('description', marker)
+    ''
+    >>> member.getProperty('email', marker) == email_address
+    True
+    >>> member.getProperty('firstname', marker)
+    ''
+    >>> member.getProperty('lastname', marker)
+    ''
+    >>> member.getProperty('phone', marker)
+    ''
+    >>> member.getProperty('city', marker)
+    ''
+    >>> member.getProperty('country', marker)
+    ''
+    >>> member.getProperty('newsletter', marker)
+    False
