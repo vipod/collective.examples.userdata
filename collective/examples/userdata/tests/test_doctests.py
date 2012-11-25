@@ -9,8 +9,7 @@ from plone.app.users.tests import TestCase
 installPackage('collective.examples.userdata')
 setupPloneSite(products=['collective.examples.userdata'])
 
-OPTIONFLAGS = (doctest.ELLIPSIS | doctest.NORMALIZE_WHITESPACE |
-    doctest.REPORT_ONLY_FIRST_FAILURE)
+OPTIONFLAGS = (doctest.ELLIPSIS | doctest.NORMALIZE_WHITESPACE)
 
 def test_suite():
     tests = ['registration_forms.txt',
